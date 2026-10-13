@@ -1,0 +1,50 @@
+name: 🤖 Telegram 指令輪詢
+
+# GitHub 沒有常駐服務，所以靠這個每 5 分鐘跑一次的排程去收 Telegram 指令。
+# 收到 /test、/run、/status 等指令就直接在這個 job 裡執行。
+#
+# ⚠️ 額度提醒：每 5 分鐘 = 每天約 288 次，GitHub 每次 job 最少計 1 分鐘，
+#    所以一個月大約 8600 分鐘。
+#    公開 repo → Actions 完全免費，沒問題。
+#    私有 repo → 免費額度只有 2000 分鐘/月，請把 cron 改成 '*/30 * * * *'
+#                （每 30 分鐘，約 1440 分鐘/月），或直接停用這個 workflow。
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: e5keeper-poller
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    name: 收取指令
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: 取出程式碼
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: 安裝 Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: 安裝相依套件
+        run: pip install --quiet -r requirements.txt
+
+      - name: 收取並執行指令
+        env:
+          E5_ACCOUNTS: ${{ secrets.E5_ACCOUNTS }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_OWNER_IDS: ${{ secrets.TELEGRAM_OWNER_IDS }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m e5keeper poll

@@ -1,0 +1,121 @@
+# ═══════════════════════════════════════════════════════════════
+#  E5 保活精靈 · 行為設定檔
+#  機密（帳號、Bot Token、PAT）一律放 GitHub Secrets，這裡只放行為參數。
+#  改完直接 commit，下一次排程就會生效。
+# ═══════════════════════════════════════════════════════════════
+
+# 通知與紀錄裡顯示的時區
+timezone: Asia/Taipei
+
+# ── 擬人化 ─────────────────────────────────────────────────
+# 讓行為模式不要一眼看出是排程機器人。改的是「節奏」而不是「內容」：
+# 每天跑幾次會變、時段會變、週末較少、呼叫間隔叢發式、建立的東西不會 1 秒就刪。
+#
+# ⚠️ 微軟的續訂判準沒有公開，這些設定沒有人能保證有用。合理推測被納入評估的是
+#    API 呼叫的量、種類與時間分布 —— 時間分布正是這一段在改善的東西。
+#    但仍然是推測。關掉它（enabled: false）也完全能保活。
+humanize:
+  enabled: true
+
+  # 候選時段（UTC，必須和 keepalive.yml 的 cron 一致）
+  # 換算台北時間：08:37 10:13 12:41 14:29 17:07 19:53 22:19 00:31
+  slots: ["00:37", "02:13", "04:41", "06:29", "09:07", "11:53", "14:19", "16:31"]
+
+  # 每天實際從上面挑幾個來跑。平日 2~5 次、週末 1~3 次。
+  # 每天的組合由「日期 + repo 名稱」決定，所以同一天的每一班算出來的行程一致，
+  # 而不同人、不同天都不一樣。
+  runs_per_day: [2, 5]
+  weekend_runs_per_day: [1, 3]
+
+  # 呼叫節奏：多數時候是連續操作（開一個畫面會連打好幾個請求），
+  # 有時停下來看內容，偶爾整個離開一下。
+  burst_probability: 0.6        # 連續操作的機率
+  burst_delay: [0.3, 2]         # 連續操作的間隔（秒）
+  pause_delay: [5, 60]          # 停下來看內容（秒）
+  long_pause_probability: 0.08  # 整個離開一下的機率
+  long_pause_delay: [60, 240]   # 離開多久（秒）
+
+  # 建立的檔案／草稿／事件延後到本輪結束才刪除，
+  # 存活數分鐘而不是 0.9 秒。一樣不會累積。
+  deferred_cleanup: true
+
+  # 訂閱到期查詢不必每次都做（一天仍會查到 1~2 次）
+  subscription_check_probability: 0.4
+
+  # 偶爾重複打開同一個東西 —— 真人會重新整理
+  repeat_probability: 0.12
+
+schedule:
+  # 排程基準時間寫在 .github/workflows/keepalive.yml 的 cron（UTC，一天 3 次）。
+  # 這裡設定「基準時間之後再隨機延遲幾分鐘」，讓每天實際執行時刻都不一樣。
+  # 基準時間相隔 8 小時，所以就算延遲拉滿，兩次執行仍相隔 7 小時以上。
+  #
+  # ⚠️ 成本提醒：等待時間會計入 GitHub Actions 額度。
+  #    公開 repo → Actions 免費不限量，維持 30 沒問題。
+  #    私有 repo → 每月只有 2000 分鐘，請改成 0 ~ 5。
+  #    （被 humanize 判定不執行的那幾班會立刻結束，不會空等）
+  random_delay_max_minutes: 30
+
+run:
+  # 每次「排程」執行時，從全部 API 裡隨機抽幾個來跑（測試模式會全跑，不受此限）
+  min_apis: 8
+  max_apis: 15
+
+  # 每個 API 之間隨機停 N 秒（下界, 上界）
+  api_delay_seconds: [1, 8]
+
+  # 每個帳號之間隨機停 N 秒（下界, 上界）
+  account_delay_seconds: [5, 45]
+
+  # 單次 HTTP 請求逾時（秒）
+  timeout_seconds: 30
+
+  retry:
+    max_attempts: 3      # 初次 1 次 + 重試 2 次
+    initial_backoff: 2   # 第一次重試前等 2 秒
+    multiplier: 2        # 之後每次 ×2（2s → 4s）
+
+features:
+  # 允許寫入型操作（建立檔案 / 草稿 / 行事曆 / 待辦，建立後立刻刪除）
+  write_operations: true
+  # 寄一封信給自己（活動訊號最強的一種）
+  send_self_mail: true
+  # 寫入型操作完成後立刻清除痕跡
+  cleanup_after_write: true
+
+  # 訂閱到期倒數提醒
+  subscription_reminder: true
+  reminder_days: [30, 14, 7, 3, 1]
+
+  # 把每次執行結果寫回 repo 的 history/ 目錄
+  # （順帶好處：repo 持續有 commit，GitHub 就不會因為 60 天沒動靜而停掉排程）
+  history: true
+
+  # 寫進 repo 的紀錄要多詳細。這些檔案在公開 repo 裡是永久公開的。
+  #   minimal（預設）→ 只寫別名與成功／失敗數
+  #   full           → 額外寫入遮蔽後的 email、訂閱剩餘天數、SKU 名稱
+  #
+  # 為什麼預設是 minimal：遮蔽後的 email 仍保留完整網域，光靠網域就查得出
+  # 你的 Azure 租用戶 ID；訂閱剩餘天數則等於公開你的到期日。
+  # 這兩項在 Telegram 通知裡照樣看得到（那是私人對話），只是不寫進公開檔案。
+  history_detail: minimal
+
+  # 每週成功率統計報告
+  weekly_report: true
+
+notify:
+  # 通知裡把 email 遮蔽成 ab***@xx.com
+  mask_email: true
+  # full = 摘要 + 逐項 API 明細 ／ summary = 只有統計
+  detail: full
+  # 排程通知的明細最多列幾行，超過就摺疊（測試模式不受此限，一定全列）
+  max_detail_lines: 60
+  # true = 全部成功時不發通知。你要求「每次執行都要發」，所以維持 false
+  silent_success: false
+
+# 要啟用的 API 類別，想關掉某一類直接註解掉
+api_categories:
+  - mail        # 郵件 / Outlook
+  - files       # OneDrive / SharePoint
+  - calendar    # 行事曆 / 待辦 / 聯絡人 / OneNote
+  - directory   # 使用者 / 群組 / Teams / 目錄 / 報表

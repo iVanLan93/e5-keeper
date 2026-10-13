@@ -1,1 +1,2 @@
 {"ts": "2026-10-13T13:56:14Z", "mode": "test", "trigger": "workflow_dispatch", "duration": 50.0, "run_id": "38408928933", "accounts": [{"alias": "E5-主帳號", "token_ok": true, "rotated": true, "ok": 50, "warn": 2, "fail": 0, "total": 52, "duration": 50.0, "token_error": "", "fails": []}]}
+{"ts": "2026-10-13T20:41:12Z", "mode": "schedule", "trigger": "schedule", "duration": 191.4, "run_id": "38461396332", "accounts": [{"alias": "E5-主帳號", "token_ok": true, "rotated": true, "ok": 9, "warn": 0, "fail": 0, "total": 9, "duration": 191.4, "token_error": "", "fails": []}]}

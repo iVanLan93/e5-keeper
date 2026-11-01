@@ -1,0 +1,1 @@
+{"ts": "2026-11-01T07:06:45Z", "mode": "schedule", "trigger": "schedule", "duration": 295.7, "run_id": "41282122623", "accounts": [{"alias": "E5-主帳號", "token_ok": true, "rotated": true, "ok": 9, "warn": 0, "fail": 0, "total": 9, "duration": 295.7, "token_error": "", "fails": []}]}
